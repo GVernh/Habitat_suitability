@@ -19,7 +19,7 @@ rm(list = ls())
 dir.create(file.path("./Data/", "Processed_data"), showWarnings = FALSE)
 dir.create(file.path("./", "R_scripts"), showWarnings = FALSE)
 
-
+# Data
 hyd_feat <- terra::rast("./Data/Hydrology/Copernicus_river_lake_shapefile/hyd_feat_25.tif")
 coastline <- terra::vect("./Data/Hydrology/Coastline/gb_shp/gb.shp")
 
@@ -32,4 +32,9 @@ plot(x)
 
 # Project data to projects targets crs
 Hyd_fea_wgs84 <- terra::project(x, coastline)
+
+
+
+# NOTES
+# Terra::distance can compute the distance of all NA cells to cells that are not NA
 
