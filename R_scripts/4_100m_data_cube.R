@@ -107,51 +107,103 @@ pres_2013 <- terra::vect(twite_2013, geom = c("lon","lat"), crs = "EPSG:4326")
 pres_1999 <- terra::project(pres_1999, terra::crs(template_100m))
 pres_2013 <- terra::project(pres_2013, terra::crs(template_100m))
 
-# Background rasters
-bgmask_1999_100m <- terra::resample(terra::rast(BG_1999), template_100m, method = "near")
-bgmask_2013_100m <- terra::resample(terra::rast(BG_2013), template_100m, method = "near")
+#################
+source("./R_scripts/Functions/Strat_sample_BG.R")
 
-#1999
-# valid non-NA cells in background mask
-valid_cells_1999 <- which(!is.na(values(bgmask_1999_100m)))
-
-# sample required number of cells
-bg_cells_1999 <- sample(
-  valid_cells_1999,
-  size = min(length(valid_cells_1999), nrow(twite_1999) * 10)
+########## 1999 #########
+bg_1999_obj <- sample_bg_points_per_square(
+  bg_mask_1km = terra::rast(BG_1999),
+  template_100m = template_100m,
+  twite_df_year = twite_1999,
+  max_points_per_square = 3
 )
 
-# convert sampled cells to x/y
-xy_1999 <- terra::xyFromCell(bgmask_1999_100m, bg_cells_1999)
-xy_1999 <- data.frame(x = xy_1999[,1], y = xy_1999[,2])
+bg_1999 <- bg_1999_obj$points
+bg_1999_df <- bg_1999_obj$sampled_table
 
-# make SpatVector points
-bg_1999 <- terra::vect(
-  xy_1999,
-  geom = c("x","y"),
-  crs = terra::crs(bgmask_1999_100m)
+# Sanity check
+pres_v_1999 <- terra::vect(twite_1999, geom = c("lon", "lat"), crs = "EPSG:4326")
+pres_v_1999 <- terra::project(pres_v_1999, terra::crs(template_100m))
+
+pres_cells_1999 <- unique(terra::cellFromXY(template_100m, terra::crds(pres_v_1999)))
+bg_cells_1999 <- bg_1999_df$cell_100m
+
+length(intersect(pres_cells_1999, bg_cells_1999)) # Should be 0
+
+# Plot
+plot(terra::rast(BG_1999))
+points(bg_1999, pch = 16, col = "blue", cex = 0.4)
+points(pres_v_1999, pch = 16, col = "red", cex = 0.4)
+
+###### 2013 ########
+
+bg_2013_obj <- sample_bg_points_per_square(
+  bg_mask_1km = terra::rast(BG_2013),
+  template_100m = template_100m,
+  twite_df_year = twite_2013,
+  max_points_per_square = 3
 )
 
-#2013
-# valid non-NA cells in background mask
-valid_cells_2013 <- which(!is.na(values(bgmask_2013_100m)))
+bg_2013 <- bg_2013_obj$points
+bg_2013_df <- bg_2013_obj$sampled_table
 
-# sample required number of cells
-bg_cells_2013 <- sample(
-  valid_cells_2013,
-  size = min(length(valid_cells_2013), nrow(twite_2013) * 10)
-)
+# Sanity check
+pres_v_2013 <- terra::vect(twite_2013, geom = c("lon", "lat"), crs = "EPSG:4326")
+pres_v_2013 <- terra::project(pres_v_1999, terra::crs(template_100m))
 
-# convert sampled cells to x/y
-xy_2013 <- terra::xyFromCell(bgmask_2013_100m, bg_cells_2013)
-xy_2013 <- data.frame(x = xy_2013[,1], y = xy_2013[,2])
+pres_cells_2013 <- unique(terra::cellFromXY(template_100m, terra::crds(pres_v_2013)))
+bg_cells_2013 <- bg_2013_df$cell_100m
 
-# make SpatVector points
-bg_2013 <- terra::vect(
-  xy_1999,
-  geom = c("x","y"),
-  crs = terra::crs(bgmask_2013_100m)
-)
+length(intersect(pres_cells_2013, bg_cells_2013)) # Should be 0
+
+# Plot
+plot(terra::rast(bg_2013))
+points(bg_2013, pch = 16, col = "blue", cex = 0.4)
+points(pres_v_2013, pch = 16, col = "red", cex = 0.4)
+
+# 
+# #1999
+# # valid non-NA cells in background mask
+# valid_cells_1999 <- which(!is.na(values(bgmask_1999_100m)))
+# 
+# # sample required number of cells
+# bg_cells_1999 <- sample(
+#   valid_cells_1999,
+#   size = min(length(valid_cells_1999), nrow(twite_1999) * 10) # Sample 10 background cells for every twite occurence point.
+# )
+# 
+# # convert sampled cells to x/y
+# xy_1999 <- terra::xyFromCell(bgmask_1999_100m, bg_cells_1999)
+# xy_1999 <- data.frame(x = xy_1999[,1], y = xy_1999[,2])
+# 
+# # make SpatVector points
+# bg_1999 <- terra::vect(
+#   xy_1999,
+#   geom = c("x","y"),
+#   crs = terra::crs(bgmask_1999_100m)
+# )
+# 
+# #2013
+# # valid non-NA cells in background mask
+# valid_cells_2013 <- which(!is.na(values(bgmask_2013_100m)))
+# 
+# # sample required number of cells
+# bg_cells_2013 <- sample(
+#   valid_cells_2013,
+#   size = min(length(valid_cells_2013), nrow(twite_2013) * 10)
+# )
+# 
+# # convert sampled cells to x/y
+# xy_2013 <- terra::xyFromCell(bgmask_2013_100m, bg_cells_2013)
+# xy_2013 <- data.frame(x = xy_2013[,1], y = xy_2013[,2])
+# 
+# # make SpatVector points
+# bg_2013 <- terra::vect(
+#   xy_1999,
+#   geom = c("x","y"),
+#   crs = terra::crs(bgmask_2013_100m)
+# )
+################
 
 
 # Extract
