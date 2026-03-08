@@ -20,11 +20,13 @@ rm(list = ls())
 # DIR
 dir.create("./Data/Processed_data/Roads/", showWarnings = FALSE)
 dir.create("./Data/Processed_data/Roads/1km/", showWarnings = FALSE)
+dir.create("./Data/Processed_data/Roads/100m/", showWarnings = FALSE)
 dir.create("./Data/Processed_data/Roads/25m/", showWarnings = FALSE)
 
 # DATA
 st_layers("./Data/Roads/oproad_gpkg_gb/Data/oproad_gb.gpkg")
-template <- terra::rast("./Data/Processed_data/template_raster_1km.tif")
+template_1km <- terra::rast("./Data/Processed_data/template_raster_1km.tif")
+template_100 <- terra::rast("./Data/Processed_data/template_raster_100m.tif")
 template_25 <- terra::rast("./Data/Processed_data/template_raster_25.tif")
 
 roads <- st_read(
@@ -46,11 +48,24 @@ r_roads <- rasterize(vect(major), template_25,
 
 # 2) Distance (metres)
 r_dist_25 <- distance(r_roads)
+names(r_dist_25) <- "Roads_dist"
+
 terra::writeRaster(r_dist_25, "./Data/Processed_data/Roads/25m/road_dist_25.tif", overwrite = TRUE)
 
 # 3) Aggregate to 1 km using min (40 x 40 cells)
 r_dist_1km_min <- aggregate(r_dist_25, fact = 40, fun = "min", na.rm = TRUE)
+ext(r_dist_1km_min) <- ext(template_1km)
+names(r_dist_1km_min) <- "Roads_dist"
+
 terra::writeRaster(r_dist_1km_min, "./Data/Processed_data/Roads/1km/road_dist_1km.tif", overwrite = TRUE)
+
+# 4) 100m
+r_dist_100_min <- aggregate(r_dist_25, fact = 4, fun = "min", na.rm = TRUE)
+ext(r_dist_100_min) <- ext(template_100)
+names(r_dist_100_min) <- "Roads_dist"
+
+terra::writeRaster(r_dist_100_min, "./Data/Processed_data/Roads/100m/road_dist_100m.tif", overwrite = TRUE)
+
 
 ###### MASK? #######
 

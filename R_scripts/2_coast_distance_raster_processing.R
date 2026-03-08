@@ -19,6 +19,7 @@ rm(list = ls())
 
 dir.create("./Data/Processed_data/Coast/", showWarnings = FALSE)
 dir.create("./Data/Processed_data/Coast/1km/", showWarnings = FALSE)
+dir.create("./Data/Processed_data/Coast/100m/", showWarnings = FALSE)
 dir.create("./Data/Processed_data/Coast/25m/", showWarnings = FALSE)
 
 template <- terra::rast("./Data/Processed_data/template_raster_1km.tif")
@@ -38,6 +39,12 @@ coast_25m <- terra::rasterize(vect(coast), template_25, field = 1, touches = TRU
 coast_dist_25 <- distance(coast_25m)
 terra::writeRaster(coast_dist_25, "./Data/Processed_data/Coast/25m/coast_dist_25m.tif", overwrite = TRUE)
 
+# 100m
+coast_dist_100m_min <- terra::aggregate(coast_dist_25, fact = 4, fun = "min", na.rm = TRUE)
+names(coast_dist_100m_min) <- "Coast_dist"
+terra::writeRaster(coast_dist_100m_min, "./Data/Processed_data/Coast/100m/coast_dist_100m.tif", overwrite = TRUE)
 
+# 1km
 coast_dist_1km_min <- terra::aggregate(coast_dist_25, fact = 40, fun = "min", na.rm = TRUE)
+names(coast_dist_1km_min) <- "Coast_dist"
 terra::writeRaster(coast_dist_1km_min, "./Data/Processed_data/Coast/1km/coast_dist_1km.tif", overwrite = TRUE)

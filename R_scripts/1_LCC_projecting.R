@@ -49,7 +49,15 @@ writeRaster(
   overwrite = TRUE
 )
 
-temp_1km <- terra::aggregate(template, fact = 40)
+temp_100 <- terra::aggregate(temp, fact = 4)
+
+writeRaster(
+  temp_100,
+  "./Data/Processed_data/template_raster_100m.tif",
+  overwrite = TRUE
+)
+
+temp_1km <- terra::aggregate(temp, fact = 40)
 
 writeRaster(
   temp_1km,

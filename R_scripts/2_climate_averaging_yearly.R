@@ -47,8 +47,10 @@ for (v in vars) {
     m <- ifel(is.nan(m), NA, m) # Change NaN to NA
     crs(m) <- "EPSG:27700" # Standardise crs just in case
     m <- terra::project(m, temp1km, method = "bilinear")
+    names(m) <- paste0(v, "_", y)
     
     out <- file.path(out_dir, v, sprintf("%s_hadukgrid_uk_1km_MarSepMean_%d.tif", v, y))
+    
     terra::writeRaster(m, out, overwrite = TRUE)
     message("Wrote: ", out)
   }

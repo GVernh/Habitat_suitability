@@ -19,7 +19,10 @@ rm(list = ls())
 
 dir.create("./Data/Processed_data/Freshwater/", showWarnings = FALSE)
 dir.create("./Data/Processed_data/Freshwater/1km/", showWarnings = FALSE)
+dir.create("./Data/Processed_data/Freshwater/100m/", showWarnings = FALSE)
 dir.create("./Data/Processed_data/Freshwater/25m/", showWarnings = FALSE)
+
+source("./R_scripts/Functions/Make_distance_rasters.R")
 
 # Template raster
 temp_25 <- terra::rast("./Data/Processed_data/template_raster_25.tif")
@@ -38,19 +41,35 @@ lakes_bng <- lakes |>
   st_transform(27700) |>
   st_collection_extract("POLYGON")
 
+# Create subsets to lake size
 lakes_bng$area_m2 <- st_area(lakes_bng)
-lakes_bng <- lakes_bng |> filter(as.numeric(area_m2) >= 1000)
+lakes_bng_1000 <- lakes_bng |> filter(as.numeric(area_m2) >= 1000)
+lakes_bng_5000 <- lakes_bng |> filter(as.numeric(area_m2) >= 5000)
+lakes_bng_10000 <- lakes_bng |> filter(as.numeric(area_m2) >= 10000)
+lakes_bng_20000 <- lakes_bng |> filter(as.numeric(area_m2) >= 20000)
 
-# Vectorise
-lakes_v <- terra::vect(lakes_bng)
+# Distance rasters
+make_dist(lakes_bng, template = temp_25, out_path_25m = "./Data/Processed_data/Freshwater/25m/lake_dist_25m_all.tif",
+          out_path_1km = "./Data/Processed_data/Freshwater/1km/lake_dist_1km_all.tif",
+          out_path_100 = "./Data/Processed_data/Freshwater/100m/lake_dist_100m_all.tif",
+          tag = "all")
 
-# Rasterize
-water_r <- terra::rasterize(lakes_v, temp_25, field = 1, background = NA)
+make_dist(lakes_bng_1000, template = temp_25, out_path_25m = "./Data/Processed_data/Freshwater/25m/lake_dist_25m_0.1ha.tif",
+          out_path_1km = "./Data/Processed_data/Freshwater/1km/lake_dist_1km_0.1ha.tif",
+          out_path_100 = "./Data/Processed_data/Freshwater/100m/lake_dist_100m_0.1ha.tif",
+          tag = "0.1ha")
 
-# Distance raster
-dist_lake <- terra::distance(water_r)
-terra::writeRaster(dist_lake, "./Data/Processed_data/Freshwater/25m/lake_dist_25m.tif", overwrite = TRUE)
+make_dist(lakes_bng_5000, template = temp_25, out_path_25m = "./Data/Processed_data/Freshwater/25m/lake_dist_25m_0.5ha.tif",
+          out_path_1km = "./Data/Processed_data/Freshwater/1km/lake_dist_1km_0.5ha.tif",
+          out_path_100 = "./Data/Processed_data/Freshwater/100m/lake_dist_100m_0.5ha.tif",
+          tag = "0.5ha")
 
-# Aggregate to 1km
-lake_dist_1km_min <- terra::aggregate(dist_lake, fact = 40, fun = "min", na.rm = TRUE)
-terra::writeRaster(lake_dist_1km_min, "./Data/Processed_data/Freshwater/1km/lake_dist_1km.tif", overwrite = TRUE)
+make_dist(lakes_bng_10000, template = temp_25, out_path_25m = "./Data/Processed_data/Freshwater/25m/lake_dist_25m_1ha.tif",
+          out_path_1km = "./Data/Processed_data/Freshwater/1km/lake_dist_1km_1ha.tif",
+          out_path_100 = "./Data/Processed_data/Freshwater/100m/lake_dist_100m_1ha.tif",
+          tag = "1ha")
+
+make_dist(lakes_bng_20000, template = temp_25, out_path_25m = "./Data/Processed_data/Freshwater/25m/lake_dist_25m_2ha.tif",
+          out_path_1km = "./Data/Processed_data/Freshwater/1km/lake_dist_1km_2ha.tif",
+          out_path_100 = "./Data/Processed_data/Freshwater/100m/lake_dist_100m_2ha.tif",
+          tag = "2ha")

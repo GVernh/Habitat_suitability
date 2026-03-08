@@ -16,6 +16,8 @@ invisible(lapply(
 ))
 rm(list = ls())
 
+
+# 1km DATA ############
 df <- read_csv("./data/NBN_data/data/data.csv")
 
 # Standardise column names (makes them lowercase with underscores)
@@ -74,3 +76,5 @@ twite_out <- twite_bng %>%
   st_drop_geometry()
 
 write.csv(twite_out, "./data/Processed_data/NBN/twite_occurence_cleaned.csv", row.names = F)
+
+
