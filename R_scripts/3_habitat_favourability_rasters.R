@@ -137,3 +137,60 @@ for (i in c(7, 8, 9, 10, 11)) {
     tag = tag
   )
 }
+
+# ==========================
+# Distance to feeding ground
+# ==========================
+
+source("./R_scripts/Functions/distance_to_LC_ras.R")
+
+dir.create("./Data/Processed_data/Feeding_ground/",
+           showWarnings = FALSE, recursive = TRUE)
+
+# Get class table from first raster
+x <- rast(LC_ras[1])
+y <- levels(x)[[1]]
+
+print(y)
+
+# Combine all twite feeding habitats into one set of LC codes
+twite_feeding_codes <- unique(c(
+  y$value[grepl("Arable", y$class, ignore.case = TRUE)],
+  y$value[grepl("Neutral grassland", y$class, ignore.case = TRUE)],
+  y$value[grepl("Calcareous grassland", y$class, ignore.case = TRUE)],
+  y$value[grepl("Acid grassland", y$class, ignore.case = TRUE)],
+  y$value[grepl("Heather grassland|Heather", y$class, ignore.case = TRUE)]
+))
+
+print(twite_feeding_codes)
+
+# 1km distance rasters
+out_dir <- "./Data/Processed_data/Feeding_ground/1km/"
+dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+
+out_files <- vapply(
+  LC_ras,
+  make_distance_to_lc_ras,
+  FUN.VALUE = character(1),
+  template = template_1km,
+  lc_codes = twite_feeding_codes,
+  out_dir = out_dir,
+  res = "1km",
+  tag = "twite_feeding"
+)
+
+# 100m distance rasters
+out_dir <- "./Data/Processed_data/Feeding_ground/100m/"
+dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+
+out_files <- vapply(
+  LC_ras,
+  make_distance_to_lc_ras,
+  FUN.VALUE = character(1),
+  template = template_100m,
+  lc_codes = twite_feeding_codes,
+  out_dir = out_dir,
+  res = "100m",
+  tag = "twite_feeding"
+)
+

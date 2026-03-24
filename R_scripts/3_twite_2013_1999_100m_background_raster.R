@@ -112,6 +112,10 @@ occ_out <- occ_ll %>%
   mutate(lon = xy[, "X"], lat = xy[, "Y"]) %>%
   select(year, !!gridref_col, !!numbirds_col, !!effort_col, lon, lat, everything())
 
+# ---------------------------
+# TO DO: Mask out coastal species with a 25km polygon
+# ---------------------------
+
 write_csv(occ_out, out_occ)
 message("Wrote presences: ", out_occ)
 

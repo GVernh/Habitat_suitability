@@ -18,6 +18,7 @@ invisible(lapply(
 rm(list = ls())
 
 dir.create("./Data/Processed_data/Coast/", showWarnings = FALSE)
+dir.create("./Data/Processed_data/Coast/Exclusion_zone", showWarnings = FALSE)
 dir.create("./Data/Processed_data/Coast/1km/", showWarnings = FALSE)
 dir.create("./Data/Processed_data/Coast/100m/", showWarnings = FALSE)
 dir.create("./Data/Processed_data/Coast/25m/", showWarnings = FALSE)
@@ -34,6 +35,36 @@ coast <- st_read(
   quiet = TRUE
 )
 
+# ========================
+# Coastal exclusion zone
+# ========================
+
+coast_vec <- terra::vect(coast)
+coast_vec <- terra::crop(coast_vec, template_25)
+terra::writeVector(
+  coast_vec,
+  "./Data/Inset_map_dfs/British_boundary.gpkg",
+  filetype = "GPKG",
+  overwrite = TRUE)
+
+buff <- c(2000, 5000, 10000, 15000, 20000, 25000)
+dir <- "./data/Processed_data/Coast/Exclusion_zone/"
+for (i in buff) {
+  coast_buf <- terra::buffer(coast_vec, width = i)
+  
+  fname <- paste0(dir, "coast_buffer_", i/1000, "km.gpkg")
+  
+  terra::writeVector(
+    coast_buf,
+    fname,
+    filetype = "GPKG",
+    overwrite = TRUE
+  )
+  }
+
+# ========================
+# Rasterize
+# ========================
 coast_25m <- terra::rasterize(vect(coast), template_25, field = 1, touches = TRUE, background = NA)
 
 coast_dist_25 <- distance(coast_25m)

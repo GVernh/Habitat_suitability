@@ -15,7 +15,7 @@ all_files <- list.files(
 )
 # Template
 
-template_100m <- terra::rast("./Data/Processed_data/template_raster_100m.tif")
+template_1km <- terra::rast("./Data/Processed_data/template_raster_1km.tif")
 
 #################################
 ########## 1999 #################
@@ -28,8 +28,7 @@ wind_1999 <- all_files[grep("sfcWind_.*_1999\\.tif$", all_files)]
 groundfrost_1999 <- all_files[grep("groundfrost_.*_1999\\.tif$", all_files)]
 
 # 100m habitat
-hab_1999 <- all_files[grep("LC_2000_.*%_habit.*100m\\.tif$", all_files)] # names fine
-feed_1999 <- all_files[grep("LC_2000_.*dist_to_twite_feeding_.*100m\\.tif$", all_files)]
+hab_1999 <- all_files[grep("LC_2000_.*%_habit.*1km\\.tif$", all_files)] # names fine
 
 #################################
 ########## 2013 #################
@@ -42,14 +41,14 @@ wind_2013 <- all_files[grep("sfcWind_.*_2013\\.tif$", all_files)]
 groundfrost_2013 <- all_files[grep("groundfrost_.*_2013\\.tif$", all_files)]
 
 # 100m habitat
-hab_2013 <- all_files[grep("LC_2015_.*%_habit.*100m\\.tif$", all_files)] # names fine
-feed_2013 <- all_files[grep("LC_2015_.*dist_to_twite_feeding_.*100m\\.tif$", all_files)]
+hab_2013 <- all_files[grep("LC_2015_.*%_habit.*1km\\.tif$", all_files)] # names fine
+
 #################################
 ########## Static ###############
 #################################
-terrain <- all_files[grep("(DTM|slope_mean|aspect|TRI).*100m", all_files)]
-distance <- all_files[grep("(road|urban|coast).*100m", all_files)]
-lake <- all_files[grep("lake_dist_100m_2ha\\.tif$", all_files)] # Ensure sensitivity test has been run
+terrain <- all_files[grep("(DTM|slope_mean|aspect|TRI|elev).*1km", all_files)]
+distance <- all_files[grep("(road|urban|coast).*1km", all_files)]
+lake <- all_files[grep("lake_dist_1km_2ha\\.tif$", all_files)] # Ensure sensitivity test has been run
 
 distance <- c(distance, lake)
 #################################
@@ -75,96 +74,83 @@ twite <- read.csv("./Data/Processed_data/twite_100m/twite_presences_1999_2013_lo
 clim_1999_1km <- terra::rast(c(tmp_1999, prec_1999, wind_1999, groundfrost_1999))
 clim_2013_1km <- terra::rast(c(tmp_2013, prec_2013, wind_2013, groundfrost_2013))
 
-clim_1999_100m <- terra::resample(clim_1999_1km, template_100m, method = "near")
-clim_2013_100m <- terra::resample(clim_2013_1km, template_100m, method = "near")
-
-eff_1999_100m <- terra::resample(terra::rast(effort_1999), template_100m, method = "near")
-eff_2013_100m <- terra::resample(terra::rast(effort_2013), template_100m, method = "near")
-
+eff_1999_1km <- terra::rast(effort_1999)
+eff_2013_1km <- terra::rast(effort_2013)
 # stacks
 pred_1999 <- c(
-  clim_1999_100m,
+  clim_1999_1km,
   terra::rast(hab_1999),
   terra::rast(terrain),
   terra::rast(distance),
-  terra::rast(feed_1999),
-  eff_1999_100m
+  eff_1999_1km
 )
 
 pred_2013 <- c(
-  clim_2013_100m,
+  clim_2013_1km,
   terra::rast(hab_2013),
   terra::rast(terrain),
   terra::rast(distance),
-  terra::rast(feed_2013),
-  eff_2013_100m
+  eff_2013_1km
 )
 
-rm(list = setdiff(ls(), c("pred_1999", "pred_2013", "twite", "BG_1999", "BG_2013", "template_100m")))
+# Twite
+# twite_1999 <- subset(twite, year == 1999)
+# twite_2013 <- subset(twite, year == 2013)
+# 
+# pres_1999 <- terra::vect(twite_1999, geom = c("lon","lat"), crs = "EPSG:4326")
+# pres_2013 <- terra::vect(twite_2013, geom = c("lon","lat"), crs = "EPSG:4326")
+# 
+# pres_1999 <- terra::project(pres_1999, terra::crs(template_1km))
+# pres_2013 <- terra::project(pres_2013, terra::crs(template_1km))
 
 # Twite
 twite_1999 <- subset(twite, year == 1999)
 twite_2013 <- subset(twite, year == 2013)
 
-pres_1999 <- terra::vect(twite_1999, geom = c("lon","lat"), crs = "EPSG:4326")
-pres_2013 <- terra::vect(twite_2013, geom = c("lon","lat"), crs = "EPSG:4326")
+# make presence points in projected CRS
+pres_1999_raw <- terra::vect(twite_1999, geom = c("lon","lat"), crs = "EPSG:4326")
+pres_2013_raw <- terra::vect(twite_2013, geom = c("lon","lat"), crs = "EPSG:4326")
 
-pres_1999 <- terra::project(pres_1999, terra::crs(template_100m))
-pres_2013 <- terra::project(pres_2013, terra::crs(template_100m))
+pres_1999_raw <- terra::project(pres_1999_raw, terra::crs(template_1km))
+pres_2013_raw <- terra::project(pres_2013_raw, terra::crs(template_1km))
 
-#################
-source("./R_scripts/Functions/Strat_sample_BG.R")
+# collapse to unique occupied 1 km cells
+pres_cells_1999 <- unique(terra::cellFromXY(template_1km, terra::crds(pres_1999_raw)))
+pres_cells_2013 <- unique(terra::cellFromXY(template_1km, terra::crds(pres_2013_raw)))
+
+pres_cells_1999 <- pres_cells_1999[!is.na(pres_cells_1999)]
+pres_cells_2013 <- pres_cells_2013[!is.na(pres_cells_2013)]
+
+# use cell centres as presence points
+pres_xy_1999 <- terra::xyFromCell(template_1km, pres_cells_1999)
+pres_xy_2013 <- terra::xyFromCell(template_1km, pres_cells_2013)
+
+pres_1999 <- terra::vect(
+  data.frame(x = pres_xy_1999[,1], y = pres_xy_1999[,2]),
+  geom = c("x","y"),
+  crs = terra::crs(template_1km)
+)
+
+pres_2013 <- terra::vect(
+  data.frame(x = pres_xy_2013[,1], y = pres_xy_2013[,2]),
+  geom = c("x","y"),
+  crs = terra::crs(template_1km)
+)
+
 
 ########## 1999 #########
-bg_1999_obj <- sample_bg_points_per_square(
-  bg_mask_1km = terra::rast(BG_1999),
-  template_100m = template_100m,
-  twite_df_year = twite_1999,
-  max_points_per_square = 3
-)
+bg_mask_1999 <- terra::rast(BG_1999)
 
-bg_1999 <- bg_1999_obj$points
-bg_1999_df <- bg_1999_obj$sampled_table
+bg_1999 <- terra::as.points(bg_mask_1999, na.rm = TRUE)
+bg_1999_df <- as.data.frame(terra::crds(bg_1999))
+names(bg_1999_df) <- c("x", "y")
 
-# Sanity check
-pres_v_1999 <- terra::vect(twite_1999, geom = c("lon", "lat"), crs = "EPSG:4326")
-pres_v_1999 <- terra::project(pres_v_1999, terra::crs(template_100m))
+# 2013
+bg_mask_2013 <- terra::rast(BG_2013)
 
-pres_cells_1999 <- unique(terra::cellFromXY(template_100m, terra::crds(pres_v_1999)))
-bg_cells_1999 <- bg_1999_df$cell_100m
-
-length(intersect(pres_cells_1999, bg_cells_1999)) # Should be 0
-
-# Plot
-plot(terra::rast(BG_1999))
-points(bg_1999, pch = 16, col = "blue", cex = 0.4)
-points(pres_v_1999, pch = 16, col = "red", cex = 0.4)
-
-###### 2013 ########
-
-bg_2013_obj <- sample_bg_points_per_square(
-  bg_mask_1km = terra::rast(BG_2013),
-  template_100m = template_100m,
-  twite_df_year = twite_2013,
-  max_points_per_square = 3
-)
-
-bg_2013 <- bg_2013_obj$points
-bg_2013_df <- bg_2013_obj$sampled_table
-
-# Sanity check
-pres_v_2013 <- terra::vect(twite_2013, geom = c("lon", "lat"), crs = "EPSG:4326")
-pres_v_2013 <- terra::project(pres_v_2013, terra::crs(template_100m))
-
-pres_cells_2013 <- unique(terra::cellFromXY(template_100m, terra::crds(pres_v_2013)))
-bg_cells_2013 <- bg_2013_df$cell_100m
-
-length(intersect(pres_cells_2013, bg_cells_2013)) # Should be 0
-
-# Plot
-plot(terra::rast(bg_2013))
-points(bg_2013, pch = 16, col = "blue", cex = 0.4)
-points(pres_v_2013, pch = 16, col = "red", cex = 0.4)
+bg_2013 <- terra::as.points(bg_mask_2013, na.rm = TRUE)
+bg_2013_df <- as.data.frame(terra::crds(bg_2013))
+names(bg_2013_df) <- c("x", "y")
 
 # Extract
 pres_vals_1999 <- terra::extract(pred_1999, pres_1999)
@@ -194,6 +180,7 @@ pres_vals_2013$ID <- NULL
 bg_vals_2013$ID <- NULL
 
 # Create full dataframe
+# Create full dataframe
 # coordinates from SpatVector objects
 xy_pres_1999 <- terra::crds(pres_1999)
 xy_bg_1999   <- terra::crds(bg_1999)
@@ -214,7 +201,6 @@ pres_vals_2013$Northing <- xy_pres_2013[,2]
 bg_vals_2013$Easting <- xy_bg_2013[,1]
 bg_vals_2013$Northing <- xy_bg_2013[,2]
 
-
 df <- rbind(pres_vals_1999, bg_vals_1999, pres_vals_2013, bg_vals_2013)
 df <- na.omit(df)
 df$year <- factor(df$year) ## This will allow the model to create a seperate intercept per year
@@ -222,14 +208,14 @@ df$log_effort <- log1p(df$Effort) # Log transform will behave better given the s
 df$Effort <- NULL
 sapply(df, function(x) length(unique(x)))
 
-df$`Fen_%_habitat` <- NULL # No fen habitat present in twite occurences
+# df$`Fen_%_habitat` <- NULL # No fen habitat present in twite occurences
 
 # checks
 table(df$presence, df$year)
 colSums(is.na(df))
 
-summary(df$Effort)
-table(df$Effort, useNA = "ifany")
+summary(df$log_effort)
+table(df$log_effort, useNA = "ifany")
 
 # Correlations
 
@@ -257,8 +243,7 @@ plot_df <- df
 # remove response / grouping columns from the correlation plot
 plot_df$presence <- NULL
 plot_df$year <- NULL
-plot_df$Northing <- NULL
-plot_df$Easting <- NULL
+
 # remove any constant columns just in case
 plot_df <- plot_df[, sapply(plot_df, function(x) length(unique(x)) > 1)]
 
@@ -271,22 +256,24 @@ nice_names <- c(
   rainfall = "Rainfall",
   sfcWind = "Wind speed",
   groundfrost = "Ground frost",
-  `Acid grassland_%_habitat` = "% Acid grassland",
-  `Bog_%_habitat` = "% Bog",
-  `Heather grassland_%_habitat` = "% Heather grassland",
-  `Heather_%_habitat` = "% Heather",
+  `Fen_%_habitat` = "Fen",
+  `Acid grassland_%_habitat` = "Acid grassland",
+  `Bog_%_habitat` = "Bog",
+  `Heather grassland_%_habitat` = "Heather grassland",
+  `Heather_%_habitat` = "Heather",
   aspect_conc = "Aspect",
-  DTM_100 = "Elevation",
-  TRI = "Terrain ruggedness (TRI)",
+  DTM_1km = "Elevation",
+  TRI = "Ruggedness",
+  Elev_RNG = "Elevation range",
+  Elev_SD = "SD Elevation",
   Slope_mean = "Slope",
   Coast_dist = "Distance to coast",
   Roads_dist = "Distance to roads",
   Urban_dist = "Distance to urban",
-  Lake_dist2ha = "Distance to lake",
-  dist_feeding_ground = "Distance to feeding gr.",
+  Lake_dist2ha = "Distance to lakes",
   log_effort = "Log effort"
 )
-plot_df <- plot_df[, names(nice_names)]
+
 rownames(cor_mat) <- nice_names[rownames(cor_mat)]
 colnames(cor_mat) <- nice_names[colnames(cor_mat)]
 
@@ -296,7 +283,7 @@ if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
 # save png
 png(
-  filename = file.path(out_dir, "twite_predictor_correlation_matrix.png"),
+  filename = file.path(out_dir, "twite_predictor_correlation_matrix_1km.png"),
   width = 2400,
   height = 2200,
   res = 300
@@ -306,7 +293,7 @@ corrplot(
   cor_mat,
   method = "color",
   type = "upper",
-  order = "original",
+  order = "hclust",
   diag = FALSE,
   tl.col = "black",
   tl.srt = 45,
@@ -320,7 +307,7 @@ corrplot(
 dev.off()
 
 df$TRI <- NULL # High correlation with slope
-
-dir.create("./Data/Processed_data/Complete_datasets/", showWarnings = FALSE)
+df$Elev_RNG <- NULL
+df$Elev_SD <- NULL
 # Write final dataframe
-write.csv(df, "./Data/Processed_data/Complete_datasets/complete_dataset_2013_1999_survey.csv", row.names = F)
+write.csv(df, "./Data/Processed_data/complete_dataset_2013_1999_survey_1km.csv", row.names = F)

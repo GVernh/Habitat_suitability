@@ -29,7 +29,6 @@ groundfrost_1999 <- all_files[grep("groundfrost_.*_1999\\.tif$", all_files)]
 
 # 100m habitat
 hab_1999 <- all_files[grep("LC_2000_.*%_habit.*100m\\.tif$", all_files)] # names fine
-feed_1999 <- all_files[grep("LC_2000_.*dist_to_twite_feeding_.*100m\\.tif$", all_files)]
 
 #################################
 ########## 2013 #################
@@ -43,15 +42,13 @@ groundfrost_2013 <- all_files[grep("groundfrost_.*_2013\\.tif$", all_files)]
 
 # 100m habitat
 hab_2013 <- all_files[grep("LC_2015_.*%_habit.*100m\\.tif$", all_files)] # names fine
-feed_2013 <- all_files[grep("LC_2015_.*dist_to_twite_feeding_.*100m\\.tif$", all_files)]
+
 #################################
 ########## Static ###############
 #################################
 terrain <- all_files[grep("(DTM|slope_mean|aspect|TRI).*100m", all_files)]
 distance <- all_files[grep("(road|urban|coast).*100m", all_files)]
-lake <- all_files[grep("lake_dist_100m_2ha\\.tif$", all_files)] # Ensure sensitivity test has been run
 
-distance <- c(distance, lake)
 #################################
 ###### Background + Effort ######
 #################################
@@ -87,7 +84,6 @@ pred_1999 <- c(
   terra::rast(hab_1999),
   terra::rast(terrain),
   terra::rast(distance),
-  terra::rast(feed_1999),
   eff_1999_100m
 )
 
@@ -96,7 +92,6 @@ pred_2013 <- c(
   terra::rast(hab_2013),
   terra::rast(terrain),
   terra::rast(distance),
-  terra::rast(feed_2013),
   eff_2013_100m
 )
 
@@ -194,27 +189,6 @@ pres_vals_2013$ID <- NULL
 bg_vals_2013$ID <- NULL
 
 # Create full dataframe
-# coordinates from SpatVector objects
-xy_pres_1999 <- terra::crds(pres_1999)
-xy_bg_1999   <- terra::crds(bg_1999)
-
-xy_pres_2013 <- terra::crds(pres_2013)
-xy_bg_2013   <- terra::crds(bg_2013)
-
-# attach coordinates to extracted tables
-pres_vals_1999$Easting <- xy_pres_1999[,1]
-pres_vals_1999$Northing <- xy_pres_1999[,2]
-
-bg_vals_1999$Easting <- xy_bg_1999[,1]
-bg_vals_1999$Northing <- xy_bg_1999[,2]
-
-pres_vals_2013$Easting <- xy_pres_2013[,1]
-pres_vals_2013$Northing <- xy_pres_2013[,2]
-
-bg_vals_2013$Easting <- xy_bg_2013[,1]
-bg_vals_2013$Northing <- xy_bg_2013[,2]
-
-
 df <- rbind(pres_vals_1999, bg_vals_1999, pres_vals_2013, bg_vals_2013)
 df <- na.omit(df)
 df$year <- factor(df$year) ## This will allow the model to create a seperate intercept per year
@@ -231,96 +205,86 @@ colSums(is.na(df))
 summary(df$Effort)
 table(df$Effort, useNA = "ifany")
 
-# Correlations
+# Lake size sensitivity test
 
-cor_mat <- cor(df[, sapply(df, is.numeric)])
-
-high_cor <- which(abs(cor_mat) > 0.8 & abs(cor_mat) < 1, arr.ind = TRUE)
-
-high_cor_pairs <- data.frame(
-  var1 = rownames(cor_mat)[high_cor[,1]],
-  var2 = colnames(cor_mat)[high_cor[,2]],
-  correlation = cor_mat[high_cor]
+lake_models <- list()
+lake_results <- data.frame()
+all_files <- list.files(
+  "./Data/Processed_data/",
+  pattern = "\\.tif$",
+  recursive = TRUE,
+  full.names = TRUE
 )
 
-high_cor_pairs
+lake_files <- all_files[grep("lake_dist.*100m", all_files)]
 
-# Correlation plot
+lake_models <- list()
+lake_results <- data.frame()
 
-# install if needed
-if (!require(corrplot)) install.packages("corrplot")
-library(corrplot)
+clean_df_names <- function(x) {
+  names(x) <- gsub("_1999", "", names(x))
+  names(x) <- gsub("_2013", "", names(x))
+  x
+}
 
-# make a clean copy
-plot_df <- df
+for (lake_file in lake_files) {
+  
+  lake_r <- terra::rast(lake_file)
+  
+  # copy original extracted tables
+  p99 <- pres_vals_1999
+  b99 <- bg_vals_1999
+  p13 <- pres_vals_2013
+  b13 <- bg_vals_2013
+  
+  # add lake values
+  p99$lake_dist <- terra::extract(lake_r, pres_1999)[, 2]
+  b99$lake_dist <- terra::extract(lake_r, bg_1999)[, 2]
+  p13$lake_dist <- terra::extract(lake_r, pres_2013)[, 2]
+  b13$lake_dist <- terra::extract(lake_r, bg_2013)[, 2]
+  
+  # add response + year explicitly
+  p99$presence <- 1; b99$presence <- 0
+  p13$presence <- 1; b13$presence <- 0
+  
+  p99$year <- 1999; b99$year <- 1999
+  p13$year <- 2013; b13$year <- 2013
+  
+  # clean names BEFORE binding
+  p99 <- clean_df_names(p99)
+  b99 <- clean_df_names(b99)
+  p13 <- clean_df_names(p13)
+  b13 <- clean_df_names(b13)
+  
+  # drop ID if present
+  if ("ID" %in% names(p99)) p99$ID <- NULL
+  if ("ID" %in% names(b99)) b99$ID <- NULL
+  if ("ID" %in% names(p13)) p13$ID <- NULL
+  if ("ID" %in% names(b13)) b13$ID <- NULL
+  
+  # force same names/order
+  common_names <- Reduce(intersect, list(names(p99), names(b99), names(p13), names(b13)))
+  p99 <- p99[, common_names, drop = FALSE]
+  b99 <- b99[, common_names, drop = FALSE]
+  p13 <- p13[, common_names, drop = FALSE]
+  b13 <- b13[, common_names, drop = FALSE]
+  
+  df_test <- rbind(p99, b99, p13, b13)
+  df_test <- na.omit(df_test)
+  df_test$year <- factor(df_test$year)
+  
+  m <- glm(presence ~ ., data = df_test, family = binomial)
+  
+  lake_models[[basename(lake_file)]] <- m
+  lake_results <- rbind(
+    lake_results,
+    data.frame(
+      lake_layer = basename(lake_file),
+      n = nrow(df_test),
+      AIC = AIC(m)
+    )
+  )
+}
 
-# remove response / grouping columns from the correlation plot
-plot_df$presence <- NULL
-plot_df$year <- NULL
-plot_df$Northing <- NULL
-plot_df$Easting <- NULL
-# remove any constant columns just in case
-plot_df <- plot_df[, sapply(plot_df, function(x) length(unique(x)) > 1)]
-
-# correlation matrix
-cor_mat <- cor(plot_df, use = "complete.obs")
-
-# optional: nicer variable labels
-nice_names <- c(
-  tas = "Mean temperature",
-  rainfall = "Rainfall",
-  sfcWind = "Wind speed",
-  groundfrost = "Ground frost",
-  `Acid grassland_%_habitat` = "% Acid grassland",
-  `Bog_%_habitat` = "% Bog",
-  `Heather grassland_%_habitat` = "% Heather grassland",
-  `Heather_%_habitat` = "% Heather",
-  aspect_conc = "Aspect",
-  DTM_100 = "Elevation",
-  TRI = "Terrain ruggedness (TRI)",
-  Slope_mean = "Slope",
-  Coast_dist = "Distance to coast",
-  Roads_dist = "Distance to roads",
-  Urban_dist = "Distance to urban",
-  Lake_dist2ha = "Distance to lake",
-  dist_feeding_ground = "Distance to feeding gr.",
-  log_effort = "Log effort"
-)
-plot_df <- plot_df[, names(nice_names)]
-rownames(cor_mat) <- nice_names[rownames(cor_mat)]
-colnames(cor_mat) <- nice_names[colnames(cor_mat)]
-
-# output folder
-out_dir <- "./Plots/Correlation_plots"
-if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
-
-# save png
-png(
-  filename = file.path(out_dir, "twite_predictor_correlation_matrix.png"),
-  width = 2400,
-  height = 2200,
-  res = 300
-)
-
-corrplot(
-  cor_mat,
-  method = "color",
-  type = "upper",
-  order = "original",
-  diag = FALSE,
-  tl.col = "black",
-  tl.srt = 45,
-  addCoef.col = "black",
-  number.cex = 0.55,
-  tl.cex = 0.9,
-  col = colorRampPalette(c("#2166AC", "white", "#B2182B"))(200),
-  mar = c(0, 0, 2, 0)
-)
-
-dev.off()
-
-df$TRI <- NULL # High correlation with slope
-
-dir.create("./Data/Processed_data/Complete_datasets/", showWarnings = FALSE)
-# Write final dataframe
-write.csv(df, "./Data/Processed_data/Complete_datasets/complete_dataset_2013_1999_survey.csv", row.names = F)
+# AIC
+lake_results[order(lake_results$AIC),]
